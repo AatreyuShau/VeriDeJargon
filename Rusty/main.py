@@ -86,16 +86,24 @@ class Pipeline:
             extractive_summary = ' '.join(extractive_sents)
             # Generative: pass merged credible lines through the summarizer
             abstractive_summary = self.summarizer.summarize(merged_credible, fast=True, max_length=25, min_length=8)
-            # Combine both summaries
-            combined_summary = extractive_summary + ' ' + abstractive_summary
-            # Post-process to remove hallucinated phrases not in the original input
-            combined_summary = self.remove_hallucinations(combined_summary, merged_credible)
-            # Add de-jargonified context for technical terms
+            # Add context from online resources for the whole summary
             try:
                 from keyword_dejargonifier import KeywordDejargonifier
                 dejargonifier = KeywordDejargonifier()
+                # Get all keyword contexts for the merged credible lines
+                keyword_contexts = dejargonifier.get_contexts(merged_credible)
+                if keyword_contexts:
+                    online_context = '\n'.join([f"{k}: {v}" for k, v in keyword_contexts.items() if len(v.split()) > 5])
+                    combined_summary = extractive_summary + ' ' + abstractive_summary + "\n\nOnline Context:\n" + online_context
+                else:
+                    combined_summary = extractive_summary + ' ' + abstractive_summary
+            except Exception as e:
+                combined_summary = extractive_summary + ' ' + abstractive_summary + f"\n[Online context error: {e}]"
+            # Post-process to remove hallucinated phrases not in the original input
+            combined_summary = self.remove_hallucinations(combined_summary, merged_credible)
+            # Add de-jargonified context for technical terms (filtered, as before)
+            try:
                 explanations = dejargonifier.dejargonify(merged_credible)
-                # Only add explanations that are contextually relevant (contain a keyword from the credible lines)
                 filtered_explanations = {}
                 for term, expl in explanations.items():
                     if term.lower() in merged_credible.lower() and term.lower() not in extractive_summary.lower():
@@ -103,25 +111,22 @@ class Pipeline:
                 if filtered_explanations:
                     combined_summary += "\n\nTechnical Terms Explained:\n"
                     for term, expl in filtered_explanations.items():
-                        # Only add if explanation is not generic or irrelevant
                         if term.lower() in merged_credible.lower() and len(expl.split()) > 5:
                             combined_summary += f"- {term}: {expl}\n"
             except Exception as e:
                 combined_summary += f"\n[Dejargonifier error: {e}]"
-            # Final pass: summarize everything (extractive + generative + explanations)
+            # Final pass: summarize everything (extractive + generative + online context + explanations)
             final_summary = self.summarizer.summarize(combined_summary, fast=True, max_length=30, min_length=10)
-            # Remove any lines that are not contextually present in the credible lines
             final_summary = self.remove_irrelevant_lines(final_summary, merged_credible)
             print("\n📝 Simplified Verified Summary:", file=sys.stderr)
             print(final_summary)
-            # Export final summary to a .txt file
             with open("output_final_summary.txt", "w") as f:
                 f.write(final_summary)
         return weighted_lines
 
     def select_representative_sentences(self, lines, top_n=2):
         """Select the most representative sentences (extractive)."""
-        # Simple heuristic: pick the longest and most information-dense lines
+        # pick the longest and most information-dense lines
         sorted_lines = sorted(lines, key=lambda l: len(l.split()), reverse=True)
         return sorted_lines[:top_n]
 
