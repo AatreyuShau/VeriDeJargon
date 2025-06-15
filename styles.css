@@ -1,0 +1,109 @@
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Body and Layout */
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #0a0f0f;         /* deep black-green */
+  color: #b2f5ea;                    /* muted aqua green */
+  padding: 2rem;
+  text-align: center;
+}
+
+/* Header */
+h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #38b2ac;                    /* cyan-green */
+}
+
+h1 .dot {
+  color: #2c7a7b;                    /* darker teal dot */
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #4fd1c5;
+  margin-bottom: 2rem;
+  font-style: italic;
+}
+
+/* Form Layout */
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Textarea Styling */
+textarea {
+  width: 90%;
+  max-width: 800px;
+  padding: 1rem;
+  margin-top: 1rem;
+  font-size: 1rem;
+  background-color: #1a2e2e;         /* dark teal */
+  color: #b2f5ea;
+  border: 1px solid #234e52;
+  border-radius: 8px;
+  resize: none;
+  font-family: 'Courier New', monospace;
+}
+
+/* Buttons */
+input[type="submit"],
+input[type="button"],
+#modal button {
+  margin: 1rem 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background-color: #234e52;         /* dark cyan */
+  color: #b2f5ea;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+input[type="submit"]:hover,
+input[type="button"]:hover,
+#modal button:hover {
+  background-color: #2c7a7b;         /* medium teal */
+}
+
+/* Modal Overlay */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.8);  /* dark overlay */
+  display: grid;
+  place-items: center;
+  z-index: 999;
+}
+
+/* Modal Box */
+#modal {
+  background: #122222;              /* very dark green-black */
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  max-width: 500px;
+  box-shadow: 0 0 25px rgba(23, 236, 230, 0.1);
+  text-align: center;
+  color: #b2f5ea;
+}
+
+/* Label Text */
+label {
+  font-weight: bold;
+  color: #81e6d9;                   /* soft cyan */
+}
+
+/* Selection */
+::selection {
+  background: #2c7a7b;
+  color: #0a0f0f;
+}

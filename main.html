@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simplify.AI</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <script defer src="script.js"></script>
+</head>
+<body>
+
+  <!-- 🌐 Header -->
+  <header>
+    <h1>Simplify<span class="dot">.</span>AI</h1>
+    <p class="subtitle">Your AI-powered text simplifier & summarizer</p>
+  </header>
+
+  <!-- 🧾 Main Form -->
+  <main>
+    <form id="summarizer-form">
+      <textarea id="raw_in" name="raw_in" rows="10" cols="60" placeholder="Enter text to be summarized:"></textarea>
+      <br>
+      <input type="submit" value="🧠 Simplify It">
+      <input type="button" value="📁 Upload Files" onclick="alert('File upload coming soon!')">
+    </form>
+  </main>
+
+  <!-- 💬 Startup Modal -->
+  <div id="modal-overlay">
+    <div id="modal">
+      <h2>Welcome to Simplify.AI 🚀</h2>
+      <p>This tool converts verbose, technical, or complex text into clear, concise summaries. Paste text, click submit, and let AI do the work!</p>
+      <button onclick="closeModal()">Let’s Go</button>
+    </div>
+  </div>
+
+</body>
+</html>
