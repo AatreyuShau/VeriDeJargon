@@ -1,10 +1,9 @@
 from transformers import pipeline
 import re
 
-# Use a very small and fast summarizer model for quick loading
 fast_summarizer = pipeline("summarization", model="t5-small")
 
-def compress_sentences(text, fast=True):
+def compress_sentences(text, fast=True, max_length=20, min_length=5):
     sentences = re.split(r'(?<=[.?!])\s+', text.strip())
     key_sents = []
 
@@ -15,10 +14,23 @@ def compress_sentences(text, fast=True):
         ]):
             key_sents.append(sent.strip())
 
-    # fallback: If not enough key sentences found, summarize entire thing
     if not key_sents:
-        return fast_summarizer(text, max_length=50, min_length=10, do_sample=False)[0]['summary_text']
+        return fast_summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)[0]['summary_text']
     return " ".join(key_sents)
+
+class Summarizer:
+    def summarize(self, text, fast=True, max_length=40, min_length=10):
+        """Summarize the input text using the T5 model, or fallback to truncation if model fails."""
+        try:
+            if fast:
+                return fast_summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)[0]['summary_text']
+        except Exception:
+            pass
+        # Fallback: truncate to max_length words
+        words = text.split()
+        if len(words) > max_length:
+            return ' '.join(words[:max_length]) + '...'
+        return text
 
 if __name__ == "__main__":
     example_text = """

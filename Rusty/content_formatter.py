@@ -1,6 +1,5 @@
-# content_formatter.py
-import re
-
-def format_content(text: str) -> str:
-    """Format the input content (basic whitespace normalization)."""
-    return re.sub(r'\s+', ' ', text.strip())
+class ContentFormatter:
+    def format(self, text: str) -> str:
+        """Format the input content (basic whitespace normalization)."""
+        import re
+        return re.sub(r'\s+', ' ', text.strip())
