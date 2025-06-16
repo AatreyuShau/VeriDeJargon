@@ -7,37 +7,36 @@ class DebateAnalyzer:
     def __init__(self):
         self.dejargonifier = KeywordDejargonifier()
 
+    def _assign_weight_single(self, line):
+        """Assign confidence weight to a single line (fact-checking and citations)."""
+        keywords = self.dejargonifier.extract_keywords(line)
+        found_contexts = []
+        citations = []
+        for kw in keywords:
+            context = self.dejargonifier.fetch_context(kw)
+            if context:
+                found_contexts.append(context)
+                citations.append(f"{kw}: {context[:80]}...")
+        confidence = 0.5
+        for ctx in found_contexts:
+            if ctx and any(word in ctx.lower() for word in line.lower().split()):
+                confidence += 0.2
+        if not found_contexts:
+            confidence -= 0.2
+        confidence = max(0.0, min(1.0, confidence))
+        if citations:
+            line_with_cite = line + "\n[Citations: " + "; ".join(citations) + "]"
+        else:
+            line_with_cite = line
+        return (line_with_cite, confidence)
+
     def assign_weights(self, lines):
-        """Assign confidence weights to each line by fact-checking against online sources and providing citations."""
+        """Assign confidence weights to each line in parallel."""
+        import concurrent.futures
         weighted = []
-        for line in lines:
-            # Extract keywords for this line
-            keywords = self.dejargonifier.extract_keywords(line)
-            # For each keyword, fetch context from online sources
-            found_contexts = []
-            citations = []
-            for kw in keywords:
-                context = self.dejargonifier.fetch_context(kw)
-                if context:
-                    found_contexts.append(context)
-                    citations.append(f"{kw}: {context[:80]}...")
-            # Fact-check: if any keyword context matches or supports the line, boost confidence
-            confidence = 0.5
-            for ctx in found_contexts:
-                if ctx and any(word in ctx.lower() for word in line.lower().split()):
-                    confidence += 0.2
-            # If no context found, lower confidence
-            if not found_contexts:
-                confidence -= 0.2
-            # Clamp confidence between 0 and 1
-            confidence = max(0.0, min(1.0, confidence))
-            # Attach citations for transparency
-            if citations:
-                line_with_cite = line + "\n[Citations: " + "; ".join(citations) + "]"
-            else:
-                line_with_cite = line
-            weighted.append((line_with_cite, confidence))
-        return weighted
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            results = list(executor.map(self._assign_weight_single, lines))
+        return results
 
 def simplify_text(text):
     """Replace complex words in text with simpler synonyms using TextBlob, and split into very short sentences."""
@@ -95,3 +94,17 @@ def simplify_summary(lines, confidences=None):
     print("\n📝 Final Child-Friendly Summary:", file=sys.stderr)
     print(final_summary, file=sys.stderr)
     return final_summary
+
+class Pipeline:
+    def __init__(self):
+        self.debater = DebateAnalyzer()
+
+    def process_lines(self, lines):
+        """Process the lines: assign weights, simplify text, and summarize."""
+        weighted_lines = self.assign_weights(lines)
+        simplified_lines = [line for line, confidence in weighted_lines]
+        summary = simplify_summary(simplified_lines, [confidence for line, confidence in weighted_lines])
+        return summary
+
+    def assign_weights(self, lines):
+        return self.debater.assign_weights(lines)

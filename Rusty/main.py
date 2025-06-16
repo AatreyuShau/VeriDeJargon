@@ -9,6 +9,7 @@ import traceback
 from time import sleep
 import json
 import re
+import concurrent.futures
 
 class Pipeline:
     def __init__(self):
@@ -60,7 +61,7 @@ class Pipeline:
         small_bits = self.sentence_separation(culled, mode="strict")
         if not small_bits:
             print("\n ! Warning: No clear statements found to analyze", file=sys.stderr)
-            return None
+            return []  # Return empty list instead of None
         print_progress(" ? Assigning weights (truth/confidence)")
         weighted_lines = self.assign_weights(small_bits)
         self.export_weighted_lines(weighted_lines)
@@ -155,7 +156,7 @@ class Pipeline:
             credible_words = set(credible_text.lower().split())
             if len(words & credible_words) >= 2:
                 filtered.append(line)
-        return '. '.join(filtered)
+        return '.'.join(filtered)
 
 def print_progress(message):
     """Print progress message with animation"""
@@ -165,11 +166,82 @@ def print_progress(message):
         print(".", end="", file=sys.stderr)
     print(file=sys.stderr)
 
-def process_text(input_text):
-    """Run the pipeline on input text and return weighted lines."""
+def process_text(input_text, return_definitions=False):
+    """Run the pipeline on input text and return summary and definitions if requested."""
+    import concurrent.futures
     try:
         pipeline = Pipeline()
-        return pipeline.run(input_text)
+        # Fast path: skip weighting if text is long, just summarize and extract keywords
+        if not isinstance(input_text, str):
+            input_text = str(input_text)
+        if len(input_text.split()) > 400:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+                summary_future = executor.submit(pipeline.summarizer.summarize, input_text, True, 60, 15)
+                definitions = {}
+                try:
+                    from Rusty.keyword_dejargonifier import KeywordDejargonifier
+                    dejargonifier = KeywordDejargonifier()
+                    keywords = dejargonifier.extract_keywords(input_text)
+                    if not isinstance(keywords, list):
+                        keywords = list(keywords)
+                    keywords = [k for k in keywords if isinstance(k, str) and len(k) > 4][:5]
+                    def_futures = {k: executor.submit(dejargonifier.fetch_context, k) for k in keywords}
+                    for k, fut in def_futures.items():
+                        try:
+                            defn = fut.result(timeout=6)
+                            if isinstance(defn, str) and isinstance(k, str) and k.lower() in defn.lower() and 'film' not in defn.lower() and 'movie' not in defn.lower():
+                                definitions[k] = defn
+                        except Exception:
+                            continue
+                except Exception:
+                    definitions = {}
+                summary = summary_future.result(timeout=10)
+            if return_definitions:
+                return summary, definitions
+            else:
+                return summary
+        # Normal path for short/medium text
+        lines = input_text.split('\n')
+        if len(lines) > 50:
+            lines = lines[:50]
+            input_text = '\n'.join(lines)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            weighted_future = executor.submit(pipeline.run, input_text)
+            definitions = {}
+            try:
+                from Rusty.keyword_dejargonifier import KeywordDejargonifier
+                dejargonifier = KeywordDejargonifier()
+                keywords = dejargonifier.extract_keywords(input_text)
+                if not isinstance(keywords, list):
+                    keywords = list(keywords)
+                keywords = [k for k in keywords if isinstance(k, str) and len(k) > 4][:5]
+                def_futures = {k: executor.submit(dejargonifier.fetch_context, k) for k in keywords}
+                for k, fut in def_futures.items():
+                    try:
+                        defn = fut.result(timeout=6)
+                        if isinstance(defn, str) and isinstance(k, str) and k.lower() in defn.lower() and 'film' not in defn.lower() and 'movie' not in defn.lower():
+                            definitions[k] = defn
+                    except Exception:
+                        continue
+            except Exception:
+                definitions = {}
+            try:
+                weighted_lines = weighted_future.result(timeout=60)
+            except concurrent.futures.TimeoutError:
+                print("\n ! Warning: assign_weights timed out", file=sys.stderr)
+                weighted_lines = []
+        # Defensive: if weighted_lines is not a list of (line, confidence) tuples, fix it
+        if not weighted_lines or not (isinstance(weighted_lines, list) and all(isinstance(x, (list, tuple)) and len(x) == 2 for x in weighted_lines)):
+            weighted_lines = []
+        try:
+            with open("output_final_summary.txt", "r") as f:
+                summary = f.read().strip()
+        except Exception:
+            summary = ""
+        if return_definitions:
+            return summary, definitions
+        else:
+            return summary
     except KeyboardInterrupt:
         print("\n\n Error: Process interrupted by user", file=sys.stderr)
         sys.exit(1)
@@ -177,7 +249,7 @@ def process_text(input_text):
         print(f"\n\n Error occurred: {str(e)}", file=sys.stderr)
         print("\nDebug information:", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        sys.exit(1)
+        return {'output': f'Error: {str(e)}'}
 
 def main():
     """Main entry point with input handling"""

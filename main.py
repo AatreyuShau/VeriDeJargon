@@ -3,6 +3,7 @@ from flask_cors import CORS
 import sys
 sys.path.append('./Rusty')
 from Rusty.main import process_text
+from Rusty.research_pipeline import process_research_topic
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS so JS from file:// or other origins can talk to Flask
@@ -15,16 +16,21 @@ def process_text_route():
         return jsonify({"output": "⚠️ No input text provided."})
     try:
         # Use the Rusty/main.py process_text function
-        result = process_text(input_text)
-        # Always read the summary from output_final_summary.txt after processing
-        try:
-            with open('output_final_summary.txt', 'r') as f:
-                output = f.read().strip()
-        except Exception as file_err:
-            output = f"[Error reading summary file: {file_err}]"
-        if not output:
-            output = "No credible summary generated."
-        return jsonify({"output": output})
+        summary, definitions = process_text(input_text, return_definitions=True)
+        return jsonify({"summary": summary, "definitions": definitions})
+    except Exception as e:
+        return jsonify({"output": f"Error: {str(e)}"})
+
+@app.route('/research', methods=['POST'])
+def research_route():
+    data = request.get_json()
+    topic = data.get("topic", "")
+    if not topic.strip():
+        return jsonify({"output": "⚠️ No research topic provided."})
+    try:
+        # Use a new research pipeline for structured research output
+        result = process_research_topic(topic)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"output": f"Error: {str(e)}"})
 
